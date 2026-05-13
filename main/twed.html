@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Arcade Desktop</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #222;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        /* Container where windows are spawned */
+        #windowcontainer {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Launcher Button */
+        .launch-btn {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #444;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 4px;
+        }
+        
+        .launch-btn:hover {
+            background: #555;
+        }
+
+        /* Base Window Instance Styles */
+        .win-instance {
+            position: absolute;
+            background: #333;
+            border: 2px solid #555;
+            border-radius: 6px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            z-index: 100;
+        }
+
+        /* Unique sizing for main games menu */
+        #gamespopup {
+            width: 450px;
+            height: 500px;
+        }
+
+        /* Maximized state for windows */
+        .win-instance.maximized {
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            transform: none !important;
+        }
+
+        /* Window Header */
+        .window-header {
+            background: #444;
+            color: #fff;
+            padding: 10px;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            user-select: none;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .control-btn {
+            cursor: pointer;
+            font-weight: bold;
+            padding: 2px 6px;
+        }
+
+        .control-btn:hover {
+            color: #ff4b4b;
+        }
+
+        /* Content Layout */
+        .content-area {
+            display: flex;
+            flex-direction: column;
+            flex: 1;
+            padding: 15px;
+            overflow: hidden;
+        }
+
+        .searchBar {
+            width: 95%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border: 1px solid #555;
+            background: #222;
+            color: #fff;
+            border-radius: 4px;
+        }
+
+        /* Game Grid Container */
+        .Container {
+            flex: 1;
+            overflow-y: auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 12px;
+            padding-right: 5px;
+        }
+
+        /* Game Cards */
+        .card {
+            background: #444;
+            border: 1px solid #555;
+            border-radius: 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .card:hover {
+            background: #555;
+        }
+
+        .card h1 {
+            font-size: 14px;
+            margin: 0;
+            padding: 15px 10px;
+            color: #fff;
+            word-wrap: break-word;
+            text-transform: capitalize;
+            user-select: none;
+        }
+
+        /* Embedded Game Wrapper Elements */
+        .game-wrapper-content {
+            flex: 1;
+            background: #000;
+            position: relative;
+        }
+
+        .game-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+        }
+    </style>
+</head>
+<body>
+
+    <button class="launch-btn" onclick="gamespopup()">Open Games Menu</button>
+    <div id="windowcontainer"></div>
+
+    <script>
+        // Global system window controls
+        function toggleMaximize(win) {
+            win.classList.toggle('maximized');
+        }
+
+        function dragElement(elmnt) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            const header = elmnt.querySelector(".window-header");
+            
+            if (header) {
+                header.onmousedown = dragMouseDown;
+            } else {
+                elmnt.onmousedown = dragMouseDown;
+            }
+
+            function dragMouseDown(e) {
+                if (elmnt.classList.contains('maximized')) return;
+                
+                // Bring clicked window to top layer
+                const activeWindows = document.querySelectorAll('.win-instance');
+                activeWindows.forEach(w => w.style.zIndex = "100");
+                elmnt.style.zIndex = "101";
+
+                // Block default actions unless clicking an input or button component
+                if (e.target.tagName !== "INPUT" && e.target.tagName !== "SPAN") {
+                    e.preventDefault();
+                }
+                
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                
+                elmnt.style.transform = "none"; 
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
+        }
+
+        // Isolated iframe game window factory
+        function openGameInWrapper(title, href) {
+            const winContainer = document.getElementById('windowcontainer');
+            const windowId = `game-${title.replace(/\s+/g, '-').toLowerCase()}`;
+            
+            // Focus window if it already exists
+            const existingWin = document.getElementById(windowId);
+            if (existingWin) {
+                document.querySelectorAll('.win-instance').forEach(w => w.style.zIndex = "100");
+                existingWin.style.zIndex = "101";
+                return;
+            }
+
+            const win = document.createElement('div');
+            win.id = windowId;
+            win.className = "win-instance";
+            win.style.width = "800px";
+            win.style.height = "600px";
+
+            win.innerHTML = `
+                <div class="window-header">
+                    <span style="text-transform: capitalize;">${title}</span>
+                    <div class="controls">
+                        <span class="control-btn" onclick="toggleMaximize(this.closest('.win-instance'))">◻</span>
+                        <span class="control-btn" onclick="this.closest('.win-instance').remove()">✕</span>
+                    </div>
+                </div>
+                <div class="game-wrapper-content">
+                    <!-- Sandbox prevents embedded script elements from redirecting your main tab -->
+                    <iframe src="${href}" 
+                            class="game-frame" 
+                            allowfullscreen="true"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-pointer-lock">
+                    </iframe>
+                </div>
+            `;
+
+            winContainer.appendChild(win);
+
+            // Cascade display displacement rules
+            win.style.top = "45%"; 
+            win.style.left = "55%";
+            win.style.transform = "translate(-50%, -50%)";
+            
+            dragElement(win);
+        }
+
+        // Core directory search pop-up view container
+        function gamespopup() { 
+            const winContainer = document.getElementById('windowcontainer'); 
+            if (document.getElementById('gamespopup')) return; 
+
+            const win = document.createElement('div'); 
+            win.id = "gamespopup"; 
+            win.className = "win-instance"; 
+
+            const games = [ 
+                {href: 'games/amazingropepolice/index.html', title: 'amazing strange rope police' }, 
+                {href: 'games/amongus/index.html', title: 'among us' }, 
+                {href: 'games/bitlife/bitlife.html', title: 'bit life' }, 
+                {href: 'games/clusterrush/cluster.html', title: 'cluster rush' }, 
+                {href: 'games/cookieclicker/cookie.html', title: 'cookie clicker' }, 
+                {href: 'games/dadish/dad1.html', title: 'dadish' }, 
+                {href: 'games/dadish2/dad2.html', title: 'dadish 2' }, 
+                {href: 'games/dadish3/dad3.html', title: 'dadish 3' }, 
+                {href: 'games/driftboss/drift.html', title: 'drift boss' }, 
+                {href: 'games/geometry-dash-lite/geometry-lite.html', title: 'geometry dash lite' }, 
+                {href: 'games/geometry-dash-scratch/geometry-scratch.html', title: 'geometry dash scratch' }, 
+                {href: 'games/motox3m/motox3m.html', title: 'moto x3m' }
+            ];
+
+            win.innerHTML = `
+                <div id="gamesPopUpHeader" class="window-header">
+                    <span>games</span>
+                    <div class="controls">
+                        <span class="control-btn" onclick="toggleMaximize(this.closest('.win-instance'))">◻</span>
+                        <span class="control-btn" onclick="this.closest('.win-instance').remove()">✕</span>
+                    </div>
+                </div>
+                <div class="content-area">
+                    <section><input type="text" class="searchBar" id="popupSearchBar" placeholder="SEARCH SOMETHING!!!"></section>
+                    <div class="Container" id="popupGamesContainer"></div>
+                </div>
+            `;
+
+            winContainer.appendChild(win);
+
+            const container = win.querySelector('#popupGamesContainer');
+            const searchBar = win.querySelector('#popupSearchBar');
+
+            function displayGames(gamesList) {
+                container.innerHTML = '';
+                gamesList.forEach(game => {
+                    const card = document.createElement('div');
+                    card.className = 'card';
+                    card.innerHTML = `<h1>${game.title}</h1>`;
+                    card.onclick = () => openGameInWrapper(game.title, game.href);
+                    container.appendChild(card);
+                });
+            }
+
+            searchBar.addEventListener('keyup', () => {
+                const searchTerm = searchBar.value.toLowerCase();
+                const filtered = games.filter(game => game.title.toLowerCase().includes(searchTerm));
+                displayGames(filtered);
+            });
+
+            displayGames(games);
+
+            win.style.top = "50%"; 
+            win.style.left = "50%";
+            win.style.transform = "translate(-50%, -50%)";
+            dragElement(win);
+        }
+    </script>
+</body>
+</html>
