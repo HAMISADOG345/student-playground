@@ -266,6 +266,19 @@
             background: var(--surface); 
             color: var(--text-muted); 
         }
+
+        .game-wrapper-content {
+            flex: 1;
+            background: #000;
+            position: relative;
+        }
+
+        .game-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+            background: #000;
+        }
     </style>
 
     <!--main CSS-->
@@ -612,22 +625,10 @@
             taskBar.innerHTML = `
                 <div class="taskbar">
                     <div class="start-btn">
-                        <div class="icon">🪟</div>
+                        <div class="icon">this is a start i think...</div>
                     </div>
 
                     <div class="app-list">
-                        <div class="icon active-indicator">📁</div>
-                        <div class="icon">🌐</div>
-                        <div class="icon">💬</div>
-                        <div class="icon">🎨</div>
-                    </div>
-
-                    <div class="system-tray">
-                        <span>📶</span>
-                        <span>🔊</span>
-                        <div style="text-align: right;">
-                        12:00 PM<br>5/10/2026
-                        </div>
                     </div>
                 </div>
             `
@@ -744,12 +745,12 @@
             dragElement(win);
         }
 
-        function gamespopup() { 
-            const winContainer = document.getElementById('windowcontainer'); 
-            if (document.getElementById('gamespopup')) return; 
+        function gamesPopUp() { 
+            const winContainer = document.getElementById('windowContainer'); 
+            if (document.getElementById('gamesPopUp')) return; 
 
             const win = document.createElement('div'); 
-            win.id = "gamespopup"; 
+            win.id = "gamesPopUp"; 
             win.className = "win-instance"; 
 
             const games = [ 
@@ -812,10 +813,9 @@
         }
 
         function openGameInWrapper(title, href) {
-            const winContainer = document.getElementById('windowcontainer');
+            const winContainer = document.getElementById('windowContainer');
             const windowId = `game-${title.replace(/\s+/g, '-').toLowerCase()}`;
-            
-            // Focus window if it already exists
+    
             const existingWin = document.getElementById(windowId);
             if (existingWin) {
                 document.querySelectorAll('.win-instance').forEach(w => w.style.zIndex = "100");
@@ -830,7 +830,7 @@
             win.style.height = "600px";
 
             win.innerHTML = `
-                <div class="window-header">
+                <div id="${title}Header" class="window-header">
                     <span style="text-transform: capitalize;">${title}</span>
                     <div class="controls">
                         <span class="control-btn" onclick="toggleMaximize(this.closest('.win-instance'))">◻</span>
@@ -849,12 +849,55 @@
 
             winContainer.appendChild(win);
 
-            // Cascade display displacement rules
             win.style.top = "45%"; 
             win.style.left = "55%";
             win.style.transform = "translate(-50%, -50%)";
             
-            dragElement(win);
+            dragElementGAME(win);
+        }
+
+        function dragElementGAME(elmnt) {
+            let pos1 = 0, pos2 = 0, pos3 = 0, pos4 = 0;
+            const header = elmnt.querySelector(".window-header");
+            
+            if (header) {
+                header.onmousedown = dragMouseDown;
+            } else {
+                elmnt.onmousedown = dragMouseDown;
+            }
+
+            function dragMouseDown(e) {
+                if (elmnt.classList.contains('maximized')) return;
+                
+                const activeWindows = document.querySelectorAll('.win-instance');
+                activeWindows.forEach(w => w.style.zIndex = "100");
+                elmnt.style.zIndex = "101";
+
+                if (e.target.tagName !== "INPUT" && e.target.tagName !== "SPAN") {
+                    e.preventDefault();
+                }
+                
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                document.onmouseup = closeDragElement;
+                document.onmousemove = elementDrag;
+            }
+
+            function elementDrag(e) {
+                e.preventDefault();
+                pos1 = pos3 - e.clientX;
+                pos2 = pos4 - e.clientY;
+                pos3 = e.clientX;
+                pos4 = e.clientY;
+                
+                elmnt.style.top = (elmnt.offsetTop - pos2) + "px";
+                elmnt.style.left = (elmnt.offsetLeft - pos1) + "px";
+            }
+
+            function closeDragElement() {
+                document.onmouseup = null;
+                document.onmousemove = null;
+            }
         }
     </script>
 
